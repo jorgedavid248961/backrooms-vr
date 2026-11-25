@@ -20,6 +20,7 @@
   <script src="js/maze.js"></script>
   <script src="js/controls.js"></script>
   <script src="js/entity.js"></script>
+  <script src="js/stereo.js"></script>
   <script src="js/game.js"></script>
 </head>
 <body>
@@ -32,6 +33,7 @@
       <p class="lore">600 millones de millas cuadradas de habitaciones vacías, alfombra húmeda y el zumbido eterno de los fluorescentes.<br>Encuentra la puerta con el letrero <span class="exit">EXIT</span>. No estás solo.</p>
       <button id="btn-enter" class="big">ENTRAR</button>
       <button id="btn-enter-vrbox" class="secondary">ENTRAR EN MODO VR BOX 👓</button>
+      <button id="btn-calib-menu" class="secondary small">⚙ CALIBRAR MI VISOR</button>
       <div class="controls-help">
         <div><b>VR Box:</b> joystick del control Bluetooth · o mantén tocada la pantalla · o mira el círculo del suelo 1 s</div>
         <div><b>PC:</b> WASD / flechas para caminar · clic y ratón para mirar</div>
@@ -43,6 +45,21 @@
   <!-- Botones durante la partida (pantalla normal) -->
   <button id="btn-vrbox" class="ui ingame-btn">👓 Modo VR Box</button>
   <button id="btn-exit-stereo" class="ui">✕</button>
+  <button id="btn-calib" class="ui">⚙</button>
+
+  <!-- Panel de calibración del visor (se ve sobre la pantalla dividida) -->
+  <div id="calib" class="ui">
+    <div class="calib-head">
+      <b>Calibrar visor</b>
+      <select id="calib-profile"></select>
+    </div>
+    <div class="calib-help">Ajusta hasta que, con el celular en el visor, las dos cruces verdes se vean como <b>una sola</b> y las paredes se vean rectas.</div>
+    <div id="calib-params"></div>
+    <div class="calib-buttons">
+      <button id="btn-calib-reset" class="secondary">Restablecer</button>
+      <button id="btn-calib-done" class="big">LISTO</button>
+    </div>
+  </div>
   <div id="stereo-divider"></div>
 
   <div id="hint">Camina: joystick · mantener pantalla · mirar al suelo 1 s · WASD</div>

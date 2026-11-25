@@ -15,6 +15,8 @@ Juego de terror psicológico de los Backrooms (Nivel 0) hecho con **A-Frame 1.6.
 
 Reiniciar tras ganar o perder: tocar la pantalla, cualquier botón del control, o `R`.
 
+**Calibrar visor ⚙ (v2):** la primera vez que entras al Modo VR Box se abre la calibración. Ajusta la separación de lentes, la altura, el tamaño, la curvatura (k1, k2) y el campo de visión hasta que las dos cruces verdes se vean como una sola. También se puede ajustar con el control Bluetooth puesto (joystick ↑↓ elige, ←→ ajusta, botón termina). Se guarda en el celular. Hay perfiles para VR Box, Cardboard v1 y v2.
+
 **Modo VR Box 👓**: pantalla dividida estereoscópica que funciona en cualquier celular (incluido iPhone). El botón de gafas de A-Frame (abajo a la derecha) usa WebXR nativo cuando el navegador lo soporta (Chrome Android).
 
 ## Estructura
@@ -26,5 +28,6 @@ js/audio.js       audio procedural (Web Audio API)
 js/maze.js        laberinto 18x18, colisiones, luces y parpadeo
 js/controls.js    gamepad, táctil, mirada y teclado
 js/entity.js      IA de la entidad
+js/stereo.js      render VR Box calibrable con corrección de lentes
 js/game.js        estados, HUD en VR, susto, victoria y modo VR Box
 ```

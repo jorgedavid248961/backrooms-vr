@@ -127,3 +127,40 @@ body.stereo #hint, body.stereo #pad-status { display: none; }
 
 /* Botón nativo de VR de A-Frame un poco más visible */
 .a-enter-vr { right: 14px !important; bottom: 18px !important; }
+
+/* ---------- v2: calibración del visor ---------- */
+button.secondary.small { font-size: 14px; padding: 10px; margin-top: 10px; opacity: 0.85; }
+#btn-calib { display: none; }
+body.stereo #btn-calib {
+  display: block; position: fixed; bottom: 6px; left: 50%; transform: translateX(-50%);
+  z-index: 10002; width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5); color: #ddd; font-size: 16px;
+}
+#calib { display: none; }
+body.calibrating #calib {
+  display: block; position: fixed; z-index: 10003;
+  left: 50%; bottom: 8px; transform: translateX(-50%);
+  width: min(520px, 94vw); max-height: 70vh; overflow-y: auto;
+  padding: 10px 14px; border-radius: 12px;
+  background: rgba(10, 8, 2, 0.86); border: 1px solid rgba(93, 255, 134, 0.5);
+  font-size: 13px; color: #efe3b4;
+  touch-action: pan-y;
+}
+body.calibrating #btn-calib, body.calibrating #btn-exit-stereo { display: none; }
+.calib-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.calib-head b { color: #5dff86; font-size: 15px; letter-spacing: 1px; }
+#calib-profile { font-family: inherit; font-size: 13px; background: #1c1709; color: #efe3b4; border: 1px solid #6a5d2c; border-radius: 6px; padding: 4px; }
+.calib-help { margin: 6px 0 4px; color: #c9bd8f; font-size: 12px; line-height: 1.4; }
+.calib-nav { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.calib-nav .calib-name { flex: 1; text-align: center; }
+.calib-val { color: #5dff86; font-weight: bold; margin-left: 6px; }
+.calib-nav button, .calib-slider button {
+  width: 40px; height: 34px; border-radius: 8px; font-size: 16px;
+  background: #2a2410; color: #f3dc7a; border: 1px solid #6a5d2c;
+}
+.calib-slider { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.calib-slider input { flex: 1; accent-color: #f3dc7a; height: 28px; }
+.calib-buttons { display: flex; gap: 10px; margin-top: 6px; }
+.calib-buttons button { margin: 0 !important; }
+.calib-buttons .big { font-size: 16px; padding: 8px; letter-spacing: 3px; }
+.calib-buttons .secondary { width: 40%; font-size: 13px; padding: 8px; }

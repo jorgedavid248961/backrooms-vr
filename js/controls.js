@@ -160,7 +160,8 @@
       }
 
       var gp = readGamepad();
-      var playing = game && game.state === 'playing';
+      C.pad = gp;
+      var playing = game && game.state === 'playing' && !game.calibrating;
 
       // Botón de mirada en el suelo.
       this.gazeMesh.position.set(rig.position.x, 0.03, rig.position.z);
