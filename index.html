@@ -10,19 +10,20 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#1a1608">
   <meta name="description" content="Juego de terror de los Backrooms (Nivel 0) en WebXR para VR Box / Google Cardboard.">
-  <link rel="stylesheet" href="css/style.css?v=2.1">
+  <link rel="stylesheet" href="css/style.css?v=3.0">
 
   <!-- Motor: A-Frame 1.6.0 (única dependencia externa) -->
   <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
 
   <!-- Módulos del juego (deben cargarse antes de <a-scene>) -->
-  <script src="js/textures.js?v=2.1"></script>
-  <script src="js/audio.js?v=2.1"></script>
-  <script src="js/maze.js?v=2.1"></script>
-  <script src="js/controls.js?v=2.1"></script>
-  <script src="js/entity.js?v=2.1"></script>
-  <script src="js/stereo.js?v=2.1"></script>
-  <script src="js/game.js?v=2.1"></script>
+  <script src="js/textures.js?v=3.0"></script>
+  <script src="js/audio.js?v=3.0"></script>
+  <script src="js/maze.js?v=3.0"></script>
+  <script src="js/controls.js?v=3.0"></script>
+  <script src="js/entity.js?v=3.0"></script>
+  <script src="js/stereo.js?v=3.0"></script>
+  <script src="js/items.js?v=3.0"></script>
+  <script src="js/game.js?v=3.0"></script>
 </head>
 <body>
 
@@ -31,18 +32,26 @@
     <div class="menu-box">
       <div class="flicker-title">BACKROOMS VR</div>
       <div class="subtitle">ELIGE UN NIVEL</div>
-      <div class="version">versión 2.1</div>
+      <div class="version">versión 3.0</div>
       <div class="levels">
         <button class="level-card ui" data-level="level0" type="button">
           <span class="lc-swatch lc-level0"></span>
           <b>Nivel 0</b><small>El Vestíbulo · alfombra húmeda y fluorescentes</small>
+          <small class="rec" data-rec="level0"></small>
         </button>
         <button class="level-card ui" data-level="pools" type="button">
           <span class="lc-swatch lc-pools"></span>
           <b>Las Piscinas</b><small>Azulejos blancos, agua tibia y eco infinito</small>
+          <small class="rec" data-rec="pools"></small>
+        </button>
+        <button class="level-card ui" data-level="warehouse" type="button">
+          <span class="lc-swatch lc-warehouse"></span>
+          <b>Nivel 1 <i class="badge">REALISTA</i></b><small>La Bodega · concreto, goteras y oscuridad</small>
+          <small class="rec" data-rec="warehouse"></small>
         </button>
       </div>
       <p class="lore lore-level0">600 millones de millas cuadradas de habitaciones vacías, alfombra húmeda y el zumbido eterno de los fluorescentes. Encuentra la puerta con el letrero <span class="exit">EXIT</span>.</p>
+      <p class="lore lore-warehouse">Una bodega de concreto sin fin. Goteras, charcos, estanterías y zonas donde las lámparas murieron. Cuida la batería de tu linterna.</p>
       <p class="lore lore-pools">Pasillos de azulejos que nunca terminan, piscinas tranquilas y el goteo del agua. Parece un lugar seguro… Encuentra la puerta <span class="exit">EXIT</span>.</p>
       <label class="opt ui"><input type="checkbox" id="opt-entity" checked> Con la entidad (terror). Desmárcalo para explorar tranquilo.</label>
       <button id="btn-enter" class="big">ENTRAR</button>
@@ -76,7 +85,7 @@
   </div>
   <div id="stereo-divider"></div>
 
-  <div id="hint">Camina: joystick · mantener pantalla · mirar al suelo 1 s · WASD</div>
+  <div id="hint">Junta las 5 notas para abrir la salida · Linterna: F / botón A · Correr: Shift / botón B</div>
   <div id="pad-status"></div>
 
   <!-- Destello rojo del susto -->

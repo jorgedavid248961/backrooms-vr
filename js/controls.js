@@ -22,8 +22,14 @@
     gamepadName: '',
     moving: false,
     speed: 2.4,
+    runMult: 1.6,
+    stamina: 100,
+    running: false,
+    padRun: false,
+    noise: 0,      // 0 quieto, 1 caminando, 2 corriendo (la entidad lo oye)
     radius: 0.3
   };
+  function flash() { window.dispatchEvent(new CustomEvent('br-flash')); }
 
   function action(src) { window.dispatchEvent(new CustomEvent('br-action', { detail: src })); }
 
@@ -32,6 +38,7 @@
     var k = e.key.toLowerCase();
     C.keys[k] = true;
     if (k === ' ' || k === 'enter' || k === 'r') action('key');
+    if (k === 'f' && !e.repeat) flash();
     if (k.indexOf('arrow') === 0 || k === ' ') e.preventDefault();
   });
   window.addEventListener('keyup', function (e) { C.keys[e.key.toLowerCase()] = false; });
@@ -52,7 +59,7 @@
   /* ---------- Gamepad (control Bluetooth del VR Box) ---------- */
   var prevButtons = [];
   function readGamepad() {
-    var out = { x: 0, y: 0 };
+    var out = { x: 0, y: 0, run: false };
     var pads = navigator.getGamepads ? navigator.getGamepads() : [];
     for (var i = 0; i < pads.length; i++) {
       var gp = pads[i];
@@ -85,10 +92,15 @@
       var prev = prevButtons[i] || [];
       for (var k = 0; k < Math.min(b.length, 12); k++) {
         var p = b[k] && b[k].pressed;
-        if (p && !prev[k]) action('gamepad');
+        if (p && !prev[k]) {
+          action('gamepad');
+          if (k === 0 || k === 2 || k === 3) flash();   // A / X / Y: linterna
+        }
         prev[k] = p;
       }
       prevButtons[i] = prev;
+      // B, gatillos y bumpers: correr mientras se mantienen.
+      [1, 4, 5, 6, 7].forEach(function (bi) { if (b[bi] && b[bi].pressed) out.run = true; });
     }
     var dz = 0.22;
     out.x = Math.abs(out.x) < dz ? 0 : Math.max(-1, Math.min(1, out.x));
@@ -182,7 +194,7 @@
         this.gaze.draw(C.gazeProgress, C.autoWalk);
       }
 
-      if (!playing) { C.moving = false; return; }
+      if (!playing) { C.moving = false; C.noise = 0; return; }
 
       // Ejes de movimiento combinados.
       var k = C.keys, f = 0, s = 0;
@@ -208,7 +220,11 @@
       var ox = p.x, oz = p.z;
       var inWater = !!(game.maze && game.maze.isWater && game.maze.isWater(p.x, p.z));
       C.inWater = inWater;
-      var spd = C.speed * (inWater ? 0.7 : 1);
+      // Correr (Shift o botón B/gatillo del control): gasta aliento y hace ruido.
+      var wantRun = (k.shift || gp.run) && f > 0.3 && C.stamina > 3;
+      C.running = wantRun;
+      C.stamina = Math.max(0, Math.min(100, C.stamina + (wantRun ? -28 : 16) * dt));
+      var spd = C.speed * (inWater ? 0.7 : 1) * (wantRun ? C.runMult : 1);
       if (len > 0.01) {
         p.x += vx * spd * dt;
         p.z += vz * spd * dt;
@@ -216,12 +232,13 @@
       if (game.maze) game.maze.resolve(p, C.radius);
       var moved = Math.sqrt((p.x - ox) * (p.x - ox) + (p.z - oz) * (p.z - oz));
       C.moving = moved > 0.002;
+      C.noise = !C.moving ? 0 : (C.running ? 2 : 1);
 
       // Pasos sincronizados con la distancia recorrida.
       this.stepDist += moved;
-      if (this.stepDist > (inWater ? 0.6 : 0.78)) {
+      if (this.stepDist > (inWater ? 0.6 : (C.running ? 1.0 : 0.78))) {
         this.stepDist = 0;
-        if (window.BRAudio) BRAudio.footstep(1, inWater);
+        if (window.BRAudio) BRAudio.footstep(C.running ? 1.6 : 1, inWater);
       }
 
       // Balanceo de cabeza sólo en pantalla normal (en VR marea).

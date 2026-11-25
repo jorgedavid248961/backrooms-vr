@@ -108,35 +108,58 @@
     E.reset = function (startCell) {
       spawnFar(startCell, 12);
       E.state = 'wander';
-      E.path = []; E.pause = 0; E.lastSeen = -999; E.repath = 0; E.time = 0; E.threat = 0;
+      E.path = []; E.pause = 0; E.lastSeen = -999; E.repath = 0; E.time = 0; E.threat = 0; E.stateTime = 0; E.lastKnown = null;
       g.position.set(E.pos.x, 0, E.pos.z);
     };
 
-    /* ---------- Bucle de IA ---------- */
-    // Devuelve true si atrapó al jugador.
-    E.update = function (dt, player, playerMoving, grace) {
+    /* ---------- Bucle de IA ----------
+       Estados: wander (patrulla) -> investigate (fue a donde oyó un ruido)
+                -> chase (te ve) -> search (busca alrededor de donde te vio).
+       info = { noise: 0 quieto | 1 caminando | 2 corriendo, visible: linterna encendida o zona iluminada } */
+    function setState(st) { E.state = st; E.stateTime = 0; }
+    E.update = function (dt, player, info, grace) {
+      if (typeof info !== 'object') info = { noise: info ? 1 : 0, visible: true };
       E.time += dt;
+      E.stateTime = (E.stateTime || 0) + dt;
       var pc = maze.cellOf(player.x, player.z), ec = maze.cellOf(E.pos.x, E.pos.z);
       var d = Math.sqrt(dist2(E.pos, player));
 
-      // Percepción (cada 0.35 s).
+      // Percepción (cada 0.3 s).
       E.repath -= dt;
       if (E.repath <= 0) {
-        E.repath = 0.35;
+        E.repath = 0.3;
         var res = maze.bfs(pc.cx, pc.cz);
         var pathLen = res.dist[ec.cz * maze.N + ec.cx];
-        var sees = maze.lineOfSight(ec, pc) && d < 20;
-        var hears = playerMoving && pathLen >= 0 && pathLen <= 3;
-        if (!grace && (sees || hears || d < 4)) {
-          E.state = 'chase'; E.lastSeen = E.time; E.pause = 0;
+        // Vista: línea recta. En la oscuridad y con la linterna apagada te ve sólo de cerca.
+        var sees = maze.lineOfSight(ec, pc) && (d < 4.5 || (info.visible && d < 20));
+        // Oído: caminar se oye a 2 celdas; correr, a 7.
+        var hearRange = info.noise === 2 ? 7 : info.noise === 1 ? 2 : 0;
+        var hears = pathLen >= 0 && pathLen <= hearRange;
+        if (!grace && (sees || d < 2.5)) {
+          if (E.state !== 'chase') setState('chase');
+          E.lastSeen = E.time; E.lastKnown = pc; E.pause = 0;
+          setPathTo(pc);
+        } else if (!grace && hears && E.state !== 'chase') {
+          setState('investigate'); E.lastKnown = pc; E.pause = 0;
           setPathTo(pc);
         } else if (E.state === 'chase') {
-          if (E.time - E.lastSeen > 5) { E.state = 'wander'; E.path = []; }
-          else if (!E.path.length) setPathTo(pc);
+          if (E.time - E.lastSeen > 3) { setState('search'); setPathTo(E.lastKnown); }
+          else setPathTo(pc);
+        } else if ((E.state === 'investigate' || E.state === 'search') && !E.path.length) {
+          // Llegó: revisa celdas cercanas a la última posición conocida.
+          if (E.stateTime > 12) { setState('wander'); }
+          else {
+            if (E.state === 'investigate') setState('search');
+            var k = E.lastKnown || pc;
+            setPathTo({
+              cx: Math.max(0, Math.min(maze.N - 1, k.cx + Math.floor(Math.random() * 7) - 3)),
+              cz: Math.max(0, Math.min(maze.N - 1, k.cz + Math.floor(Math.random() * 7) - 3))
+            });
+          }
         }
       }
 
-      var speed = E.state === 'chase' ? 2.25 : 1.25;
+      var speed = { chase: 2.6, investigate: 1.9, search: 1.6, wander: 1.25 }[E.state] || 1.25;
       if (E.state === 'wander') {
         if (E.pause > 0) { E.pause -= dt; speed = 0; }
         else if (!E.path.length) {
