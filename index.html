@@ -29,8 +29,20 @@
   <div id="menu" class="overlay ui">
     <div class="menu-box">
       <div class="flicker-title">BACKROOMS VR</div>
-      <div class="subtitle">NIVEL 0 · “EL VESTÍBULO”</div>
-      <p class="lore">600 millones de millas cuadradas de habitaciones vacías, alfombra húmeda y el zumbido eterno de los fluorescentes.<br>Encuentra la puerta con el letrero <span class="exit">EXIT</span>. No estás solo.</p>
+      <div class="subtitle">ELIGE UN NIVEL</div>
+      <div class="levels">
+        <button class="level-card ui" data-level="level0" type="button">
+          <span class="lc-swatch lc-level0"></span>
+          <b>Nivel 0</b><small>El Vestíbulo · alfombra húmeda y fluorescentes</small>
+        </button>
+        <button class="level-card ui" data-level="pools" type="button">
+          <span class="lc-swatch lc-pools"></span>
+          <b>Las Piscinas</b><small>Azulejos blancos, agua tibia y eco infinito</small>
+        </button>
+      </div>
+      <p class="lore lore-level0">600 millones de millas cuadradas de habitaciones vacías, alfombra húmeda y el zumbido eterno de los fluorescentes. Encuentra la puerta con el letrero <span class="exit">EXIT</span>.</p>
+      <p class="lore lore-pools">Pasillos de azulejos que nunca terminan, piscinas tranquilas y el goteo del agua. Parece un lugar seguro… Encuentra la puerta <span class="exit">EXIT</span>.</p>
+      <label class="opt ui"><input type="checkbox" id="opt-entity" checked> Con la entidad (terror). Desmárcalo para explorar tranquilo.</label>
       <button id="btn-enter" class="big">ENTRAR</button>
       <button id="btn-enter-vrbox" class="secondary">ENTRAR EN MODO VR BOX 👓</button>
       <button id="btn-calib-menu" class="secondary small">⚙ CALIBRAR MI VISOR</button>
@@ -74,6 +86,7 @@
       <div id="end-title">TE ATRAPÓ</div>
       <div id="end-sub"></div>
       <button id="btn-restart" class="big ui">REINICIAR</button>
+      <button id="btn-menu" class="secondary ui">MENÚ PRINCIPAL</button>
     </div>
   </div>
 

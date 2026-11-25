@@ -9,7 +9,6 @@
 
   var N = 18;          // celdas por lado (>= 16)
   var CELL = 3;        // metros por celda
-  var H = 3.2;         // altura de pared
   var T = 0.2;         // grosor de pared
   var LIGHT_POOL = 4;  // luces dinámicas que siguen a las lámparas cercanas
 
@@ -20,7 +19,17 @@
     opts = opts || {};
     var seed = opts.seed || (Math.random() * 1e9) | 0;
     var r = BRTextures.rng(seed);
-    var M = { N: N, CELL: CELL, H: H, seed: seed };
+    var theme = opts.theme === 'pools' ? 'pools' : 'level0';
+    // Configuración de cada nivel.
+    var CFG = theme === 'pools' ? {
+      H: 4.2, extraOpen: 0.32, rooms: 8, roomMin: 3, roomMax: 5, pillarProb: 0.9, faulty: 2,
+      lightColor: 0xf2f8ff, lightPower: 0.85
+    } : {
+      H: 3.2, extraOpen: 0.09, rooms: 5, roomMin: 3, roomMax: 4, pillarProb: 0.8, faulty: 14,
+      lightColor: 0xfff0c0, lightPower: 1.5
+    };
+    var H = CFG.H;
+    var M = { N: N, CELL: CELL, H: H, seed: seed, theme: theme };
 
     /* ------------------------------------------------------------------
        1) Laberinto: backtracker recursivo (pasillos y callejones sin salida)
@@ -63,8 +72,8 @@
     }
 
     // Algunos bucles extra para que no sea un árbol perfecto (sigue habiendo callejones).
-    for (z = 1; z < N; z++) for (x = 0; x < N; x++) if (hW[z][x] && r() < 0.09) hW[z][x] = false;
-    for (z = 0; z < N; z++) for (x = 1; x < N; x++) if (vW[z][x] && r() < 0.09) vW[z][x] = false;
+    for (z = 1; z < N; z++) for (x = 0; x < N; x++) if (hW[z][x] && r() < CFG.extraOpen) hW[z][x] = false;
+    for (z = 0; z < N; z++) for (x = 1; x < N; x++) if (vW[z][x] && r() < CFG.extraOpen) vW[z][x] = false;
 
     /* ------------------------------------------------------------------
        2) Salas abiertas con pilares
@@ -72,8 +81,9 @@
     var pillars = [];
     var rooms = [];
     var tries = 0;
-    while (rooms.length < 5 && tries++ < 200) {
-      var rw = 3 + Math.floor(r() * 2), rh = 3 + Math.floor(r() * 2);
+    while (rooms.length < CFG.rooms && tries++ < 300) {
+      var span = CFG.roomMax - CFG.roomMin + 1;
+      var rw = CFG.roomMin + Math.floor(r() * span), rh = CFG.roomMin + Math.floor(r() * span);
       var rx = 1 + Math.floor(r() * (N - rw - 2)), rz = 1 + Math.floor(r() * (N - rh - 2));
       // Lejos del inicio y de la salida.
       if (rx < 4 && rz < 4) continue;
@@ -93,7 +103,7 @@
       }
       for (var pz = o.z + 1; pz < o.z + o.h; pz++) {
         for (var px = o.x + 1; px < o.x + o.w; px++) {
-          if (r() < 0.8) pillars.push([px * CELL, pz * CELL]);
+          if (r() < CFG.pillarProb) pillars.push([px * CELL, pz * CELL]);
         }
       }
     });
@@ -196,26 +206,75 @@
     wallGeo.setIndex(IDX);
     wallGeo.computeBoundingSphere();
 
-    var wallTex = BRTextures.wallpaper();
+    var wallTex;
+    if (theme === 'pools') { wallTex = BRTextures.poolWall(); wallTex.repeat.set(1, H / 1.6); }
+    else wallTex = BRTextures.wallpaper();
     var wallMat = new THREE.MeshLambertMaterial({ map: wallTex });
     var walls = new THREE.Mesh(wallGeo, wallMat);
     walls.matrixAutoUpdate = false;
     root.add(walls);
 
     var W = N * CELL;
-    var carpetTex = BRTextures.carpet();
+    var carpetTex = theme === 'pools' ? BRTextures.poolFloor() : BRTextures.carpet();
     carpetTex.repeat.set(W / 2, W / 2);
     var floor = new THREE.Mesh(new THREE.PlaneGeometry(W, W), new THREE.MeshLambertMaterial({ map: carpetTex }));
     floor.rotation.x = -Math.PI / 2;
     floor.position.set(W / 2, 0, W / 2);
     root.add(floor);
 
-    var ceilTex = BRTextures.ceiling();
+    var ceilTex = theme === 'pools' ? BRTextures.poolCeiling() : BRTextures.ceiling();
     ceilTex.repeat.set(W / 1.2, W / 1.2);
     var ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, W), new THREE.MeshLambertMaterial({ map: ceilTex }));
     ceil.rotation.x = Math.PI / 2;
     ceil.position.set(W / 2, H, W / 2);
     root.add(ceil);
+
+    /* ------------------------------------------------------------------
+       5b) Piscinas (sólo en el nivel de las Piscinas)
+       ------------------------------------------------------------------ */
+    var pools = [];
+    M.waterTex = null;
+    if (theme === 'pools') {
+      rooms.forEach(function (o) {
+        if (r() < 0.85) pools.push({ minX: o.x * CELL + 0.5, maxX: (o.x + o.w) * CELL - 0.5, minZ: o.z * CELL + 0.5, maxZ: (o.z + o.h) * CELL - 0.5 });
+      });
+      for (var pc = 0; pc < 8; pc++) {
+        var px0 = 2 + Math.floor(r() * (N - 5)), pz0 = 2 + Math.floor(r() * (N - 5));
+        if (px0 > N - 5 && pz0 > N - 5) continue;
+        var horiz = r() < 0.5;
+        pools.push({ minX: px0 * CELL + 0.35, maxX: (px0 + (horiz ? 2 : 1)) * CELL - 0.35, minZ: pz0 * CELL + 0.35, maxZ: (pz0 + (horiz ? 1 : 2)) * CELL - 0.35 });
+      }
+      var bottomTex = BRTextures.poolBottom();
+      var waterTex = BRTextures.caustics();
+      M.waterTex = waterTex;
+      var bottomMat = new THREE.MeshLambertMaterial({ map: bottomTex });
+      var waterMat = new THREE.MeshLambertMaterial({ color: 0xbff4ff, map: waterTex, transparent: true, opacity: 0.55, depthWrite: false });
+      pools.forEach(function (pl) {
+        var w = pl.maxX - pl.minX, d = pl.maxZ - pl.minZ;
+        var bt = bottomTex.clone(); bt.needsUpdate = true; bt.repeat.set(w / 1.6, d / 1.6);
+        var bottom = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshLambertMaterial({ map: bt }));
+        bottom.rotation.x = -Math.PI / 2;
+        bottom.position.set((pl.minX + pl.maxX) / 2, 0.004, (pl.minZ + pl.maxZ) / 2);
+        root.add(bottom);
+        var wgeo = new THREE.PlaneGeometry(w, d);
+        var uv = wgeo.attributes.uv;
+        for (var ui = 0; ui < uv.count; ui++) uv.setXY(ui, uv.getX(ui) * w / 3, uv.getY(ui) * d / 3);
+        var water = new THREE.Mesh(wgeo, waterMat);
+        water.rotation.x = -Math.PI / 2;
+        water.position.set((pl.minX + pl.maxX) / 2, 0.3, (pl.minZ + pl.maxZ) / 2);
+        water.renderOrder = 2;
+        root.add(water);
+      });
+      bottomMat.dispose();
+    }
+    M.pools = pools;
+    M.isWater = function (x, z) {
+      for (var i = 0; i < pools.length; i++) {
+        var pl = pools[i];
+        if (x > pl.minX && x < pl.maxX && z > pl.minZ && z < pl.maxZ) return true;
+      }
+      return false;
+    };
 
     /* ------------------------------------------------------------------
        5) Paneles fluorescentes (InstancedMesh: 1 draw call) + luces
@@ -229,8 +288,8 @@
     }
     // Lámparas defectuosas: 2 junto al inicio (para notarlas pronto) + varias al azar.
     function fx(cx, cz) { return fixtures[cz * N + cx]; }
-    fx(1, 0).faulty = true; fx(0, 2).faulty = true; fx(2, 1).faulty = true;
-    for (var f = 0; f < 14; f++) fixtures[Math.floor(r() * fixtures.length)].faulty = true;
+    if (theme === 'level0') { fx(1, 0).faulty = true; fx(0, 2).faulty = true; fx(2, 1).faulty = true; }
+    for (var f = 0; f < CFG.faulty; f++) fixtures[Math.floor(r() * fixtures.length)].faulty = true;
 
     var panelGeo = new THREE.PlaneGeometry(1.2, 0.6);
     panelGeo.rotateX(Math.PI / 2); // mirando hacia abajo
@@ -247,7 +306,7 @@
 
     var lights = [];
     for (var li = 0; li < LIGHT_POOL; li++) {
-      var pl = new THREE.PointLight(0xfff0c0, 0, 9, 1.6);
+      var pl = new THREE.PointLight(CFG.lightColor, 0, 10, 1.6);
       pl.position.set(-100, H - 0.3, -100);
       pl.userData = { fixture: null, fade: 0 };
       root.add(pl);
@@ -334,6 +393,7 @@
     var assignTimer = 0, zapCooldown = 0, colorDirty = false;
     function update(dt, player, entity) {
       zapCooldown -= dt;
+      if (M.waterTex) { M.waterTex.offset.x += dt * 0.018; M.waterTex.offset.y += dt * 0.011; }
       for (var k = 0; k < fixtures.length; k++) {
         var fi = fixtures[k];
         var threat = 0;
@@ -407,7 +467,7 @@
         var fo = l.userData.fixture;
         if (!fo) return;
         l.userData.fade = Math.min(1, l.userData.fade + dt * 3);
-        l.intensity = 1.5 * fo.bright * l.userData.fade;
+        l.intensity = CFG.lightPower * fo.bright * l.userData.fade;
         sum += fo.bright;
       });
       if (window.BRAudio) BRAudio.setHumLevel(0.55 + 0.45 * (sum / LIGHT_POOL));

@@ -415,6 +415,77 @@
     return obj;
   }
 
+  /* =====================  LAS PISCINAS (Poolrooms)  ===================== */
+  // Azulejos cuadrados con junta. tiles = azulejos por lado del lienzo.
+  function tiles(seed, base, grout, tilesN, grime) {
+    var w = 256, h = 256, r = rng(seed);
+    var c = makeCanvas(w, h), ctx = c.getContext('2d');
+    var ts = w / tilesN;
+    ctx.fillStyle = grout;
+    ctx.fillRect(0, 0, w, h);
+    for (var ty = 0; ty < tilesN; ty++) {
+      for (var tx = 0; tx < tilesN; tx++) {
+        var v = (r() - 0.5) * 10;
+        ctx.fillStyle = shade(base, v);
+        ctx.fillRect(tx * ts + 1.5, ty * ts + 1.5, ts - 3, ts - 3);
+        // Brillo esmaltado.
+        var g = ctx.createLinearGradient(tx * ts, ty * ts, tx * ts + ts, ty * ts + ts);
+        g.addColorStop(0, 'rgba(255,255,255,0.22)');
+        g.addColorStop(0.5, 'rgba(255,255,255,0)');
+        g.addColorStop(1, 'rgba(0,0,0,0.05)');
+        ctx.fillStyle = g;
+        ctx.fillRect(tx * ts + 1.5, ty * ts + 1.5, ts - 3, ts - 3);
+      }
+    }
+    grain(ctx, w, h, 6, r, 0);
+    if (grime) {
+      for (var i = 0; i < 4; i++) blot(ctx, w, h, r() * w, r() * h, 10 + r() * 20, '120,140,130', 0.08, r, true);
+    }
+    return toTexture(c, true, true);
+  }
+  function shade(hex, v) {
+    var n = parseInt(hex.slice(1), 16);
+    var rr = clamp(((n >> 16) & 255) + v), gg = clamp(((n >> 8) & 255) + v), bb = clamp((n & 255) + v);
+    return 'rgb(' + (rr | 0) + ',' + (gg | 0) + ',' + (bb | 0) + ')';
+  }
+  function poolWall() { return tiles(31, '#e9f1f0', '#b7c6c5', 8, true); }
+  function poolFloor() { return tiles(32, '#e4eeee', '#aebfbe', 8, true); }
+  function poolBottom() { return tiles(33, '#78c8dc', '#4f9fb3', 8, false); }
+  function poolCeiling() { return tiles(34, '#f2f6f4', '#c9d3d1', 4, false); }
+
+  // Cáusticas: red luminosa tipo reflejo de agua (se anima desplazando la textura).
+  function caustics() {
+    var w = 256, h = 256, r = rng(55);
+    var c = makeCanvas(w, h), ctx = c.getContext('2d');
+    ctx.fillStyle = '#4fb8cf';
+    ctx.fillRect(0, 0, w, h);
+    var pts = [];
+    for (var i = 0; i < 28; i++) pts.push([r() * w, r() * h]);
+    ctx.strokeStyle = 'rgba(225,255,255,0.55)';
+    for (var a = 0; a < pts.length; a++) {
+      // Conecta cada punto con sus 3 vecinos más cercanos (con repetición en los bordes).
+      var near = [];
+      for (var b = 0; b < pts.length; b++) {
+        if (a === b) continue;
+        for (var ox = -1; ox <= 1; ox++) for (var oy = -1; oy <= 1; oy++) {
+          var bx = pts[b][0] + ox * w, by = pts[b][1] + oy * h;
+          var d = (bx - pts[a][0]) * (bx - pts[a][0]) + (by - pts[a][1]) * (by - pts[a][1]);
+          near.push([d, bx, by]);
+        }
+      }
+      near.sort(function (x, y) { return x[0] - y[0]; });
+      for (var k = 0; k < 3; k++) {
+        ctx.lineWidth = 1.5 + r() * 2.5;
+        ctx.beginPath();
+        var mx = (pts[a][0] + near[k][1]) / 2 + (r() - 0.5) * 14, my = (pts[a][1] + near[k][2]) / 2 + (r() - 0.5) * 14;
+        ctx.moveTo(pts[a][0], pts[a][1]);
+        ctx.quadraticCurveTo(mx, my, near[k][1], near[k][2]);
+        ctx.stroke();
+      }
+    }
+    return toTexture(c, true, true);
+  }
+
   window.BRTextures = {
     rng: rng,
     wallpaper: wallpaper,
@@ -426,6 +497,11 @@
     scareFace: scareFace,
     hudCanvas: hudCanvas,
     drawHud: drawHud,
-    gazeButton: gazeButton
+    gazeButton: gazeButton,
+    poolWall: poolWall,
+    poolFloor: poolFloor,
+    poolBottom: poolBottom,
+    poolCeiling: poolCeiling,
+    caustics: caustics
   };
 })();

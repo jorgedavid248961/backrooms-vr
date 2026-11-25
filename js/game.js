@@ -34,18 +34,6 @@
       this.camWorld = new THREE.Vector3();
       this.camDir = new THREE.Vector3();
 
-      // Mundo.
-      var root = new THREE.Group();
-      scene.object3D.add(root);
-      G.maze = BRMaze.build(root);
-
-      // Iluminación base (la luz dinámica viene del pool de maze.js).
-      root.add(new THREE.AmbientLight(0xfff1c4, 0.42));
-      root.add(new THREE.HemisphereLight(0xfff6d8, 0x6b5a2a, 0.35));
-
-      G.entity = BREntity.create(root, G.maze);
-      this.placePlayer();
-      G.entity.reset(G.maze.startCell);
 
       // HUD y susto pegados a la cámara (se ven en pantalla normal, VR Box y WebXR).
       var cam3 = this.camEl.getObject3D('camera');
@@ -70,6 +58,30 @@
       this.ready = true;
     },
 
+    /* ---------- Construcción del nivel elegido en el menú ---------- */
+    buildLevel: function (theme, withEntity) {
+      var scene = this.el.object3D;
+      var root = new THREE.Group();
+      scene.add(root);
+      G.level = theme;
+      G.maze = BRMaze.build(root, { theme: theme });
+      var fogColor, density;
+      if (theme === 'pools') {
+        root.add(new THREE.AmbientLight(0xeef6f8, 0.42));
+        root.add(new THREE.HemisphereLight(0xffffff, 0xa9bcbf, 0.28));
+        fogColor = 0xcfe3e4; density = 0.032;
+      } else {
+        root.add(new THREE.AmbientLight(0xfff1c4, 0.42));
+        root.add(new THREE.HemisphereLight(0xfff6d8, 0x6b5a2a, 0.35));
+        fogColor = 0x262110; density = 0.065;
+      }
+      scene.fog = new THREE.FogExp2(fogColor, density);
+      scene.background = new THREE.Color(fogColor);
+      G.entity = withEntity ? BREntity.create(root, G.maze) : null;
+      this.placePlayer();
+      if (G.entity) G.entity.reset(G.maze.startCell);
+    },
+
     placePlayer: function () {
       var m = G.maze;
       this.rig.object3D.position.set(m.start.x, this.rig.object3D.position.y, m.start.z);
@@ -79,7 +91,23 @@
     /* ---------- Pantalla de inicio y permisos ---------- */
     bindUI: function () {
       var self = this;
-      function enter(withStereo) {
+      // Selección de nivel y entidad (se recuerda en el celular).
+      var prefs = { level: 'level0', entity: true };
+      try { var sp = JSON.parse(localStorage.getItem('br-menu') || 'null'); if (sp) prefs = sp; } catch (e) { /* noop */ }
+      function paintMenu() {
+        document.querySelectorAll('.level-card').forEach(function (c) { c.classList.toggle('sel', c.dataset.level === prefs.level); });
+        $('opt-entity').checked = !!prefs.entity;
+        document.body.dataset.level = prefs.level;
+      }
+      document.querySelectorAll('.level-card').forEach(function (c) {
+        c.addEventListener('click', function () { prefs.level = c.dataset.level; paintMenu(); });
+      });
+      $('opt-entity').addEventListener('change', function () { prefs.entity = $('opt-entity').checked; });
+      paintMenu();
+
+      function enter(withStereo, calib) {
+        try { localStorage.setItem('br-menu', JSON.stringify(prefs)); } catch (e) { /* noop */ }
+        if (!G.maze) self.buildLevel(prefs.level, prefs.entity);
         // 1) Permisos de orientación en iOS 13+ (debe ocurrir dentro del gesto).
         try {
           if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -91,20 +119,23 @@
         } catch (e) { /* noop */ }
         // 2) Desbloquear el AudioContext y arrancar el zumbido.
         BRAudio.init();
-        BRAudio.startHum();
+        BRAudio.startHum(G.level);
         BRAudio.startAmbient();
         // 3) Ocultar el menú y empezar.
         $('menu').classList.add('hidden');
         document.body.classList.add('in-game');
         self.startGame();
-        if (withStereo) self.setStereo(true);
+        if (calib) self.openCalib();
+        else if (withStereo) self.setStereo(true);
         self.showHint();
       }
+      this.enter = enter;
       $('btn-enter').addEventListener('click', function () { enter(false); });
       $('btn-enter-vrbox').addEventListener('click', function () { enter(true); });
       $('btn-vrbox').addEventListener('click', function () { self.setStereo(!G.stereo); });
       $('btn-exit-stereo').addEventListener('click', function () { self.setStereo(false); });
       $('btn-restart').addEventListener('click', function () { self.restart(); });
+      $('btn-menu').addEventListener('click', function () { location.reload(); });
 
       window.addEventListener('br-action', function (e) {
         if (G.calibrating) {
@@ -144,7 +175,7 @@
 
     restart: function () {
       this.placePlayer();
-      G.entity.reset(G.maze.startCell);
+      if (G.entity) G.entity.reset(G.maze.startCell);
       BRAudio.restoreHum();
       BRAudio.startAmbient();
       this.startGame();
@@ -193,20 +224,14 @@
         self.refreshCalib();
       });
       $('btn-calib').addEventListener('click', function () { self.openCalib(); });
-      $('btn-calib-menu').addEventListener('click', function () { self.openCalib(true); });
+      $('btn-calib-menu').addEventListener('click', function () { self.enter(true, true); });
       $('btn-calib-done').addEventListener('click', function () { self.closeCalib(); });
       $('btn-calib-reset').addEventListener('click', function () { BRStereo.applyProfile('vrbox'); self.refreshCalib(); });
       this.calibSel = 0;
       this.calibRepeat = 0;
     },
 
-    openCalib: function (fromMenu) {
-      if (fromMenu) {
-        BRAudio.init();
-        $('menu').classList.add('hidden');
-        document.body.classList.add('in-game');
-        if (G.state === 'menu') { BRAudio.startHum(); BRAudio.startAmbient(); this.startGame(); }
-      }
+    openCalib: function () {
       G.calibrating = true;
       BRStereo.calibrating = true;
       document.body.classList.add('calibrating');
@@ -308,7 +333,7 @@
 
     /* ---------- Bucle principal ---------- */
     tick: function (t, dtMs) {
-      if (!this.ready) return;
+      if (!this.ready || !G.maze) return;
       var dt = Math.min(0.05, (dtMs || 16) / 1000);
       var rig = this.rig.object3D;
       var p = this.playerPos.set(rig.position.x, 1.6, rig.position.z);
@@ -323,15 +348,15 @@
       } else if (G.state === 'playing') {
         G.time += dt;
         var grace = G.time < 8;
-        var caught = G.entity.update(dt, p, BRControls.moving, grace);
-        G.maze.update(dt, p, G.entity.pos);
-        BRAudio.setThreat(G.entity.threat);
+        var caught = G.entity ? G.entity.update(dt, p, BRControls.moving, grace) : false;
+        G.maze.update(dt, p, G.entity ? G.entity.pos : null);
+        BRAudio.setThreat(G.entity ? G.entity.threat : 0);
 
         var ex = G.maze.exit, dx = p.x - ex.x, dz = p.z - ex.z;
         if (dx * dx + dz * dz < 1.4 * 1.4) this.win();
         else if (caught) this.caught();
       } else {
-        G.maze.update(dt, G.state === 'menu' ? null : p, G.state === 'caught' ? G.entity.pos : null);
+        G.maze.update(dt, G.state === 'menu' ? null : p, G.state === 'caught' && G.entity ? G.entity.pos : null);
       }
 
       // Animación del susto.
@@ -362,7 +387,7 @@
       G.restartAt = performance.now() + 1700;
       this.hudMesh.visible = false;
       this.showEnd('TE ATRAPÓ', [
-        'Sobreviviste ' + Math.floor(G.time) + ' segundos en el Nivel 0.',
+        'Sobreviviste ' + Math.floor(G.time) + ' segundos' + (G.level === 'pools' ? ' en las Piscinas.' : ' en el Nivel 0.'),
         'Toca la pantalla, pulsa un botón',
         'del control o la tecla R para reiniciar.'
       ], '#ff4a3a', 'lose');

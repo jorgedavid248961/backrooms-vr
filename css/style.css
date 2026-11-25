@@ -164,3 +164,29 @@ body.calibrating #btn-calib, body.calibrating #btn-exit-stereo { display: none; 
 .calib-buttons button { margin: 0 !important; }
 .calib-buttons .big { font-size: 16px; padding: 8px; letter-spacing: 3px; }
 .calib-buttons .secondary { width: 40%; font-size: 13px; padding: 8px; }
+
+/* ---------- v2: menú de niveles ---------- */
+.levels { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 4px; }
+.level-card {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 10px 8px; border-radius: 10px; text-align: center;
+  background: rgba(255, 240, 180, 0.06); color: #efe3b4;
+  border: 2px solid rgba(230, 210, 130, 0.25);
+}
+.level-card b { font-size: 15px; letter-spacing: 1px; }
+.level-card small { font-size: 11px; color: #c9bd8f; line-height: 1.3; }
+.level-card.sel { border-color: #f3dc7a; background: rgba(243, 220, 122, 0.14); box-shadow: 0 0 16px rgba(243, 220, 122, 0.35); }
+.lc-swatch { width: 100%; height: 44px; border-radius: 6px; }
+.lc-level0 { background: repeating-linear-gradient(90deg, #c9b562 0 10px, #bba650 10px 20px); box-shadow: inset 0 -12px 0 #86703a; }
+.lc-pools {
+  background:
+    linear-gradient(#7fcfe0, #4fb8cf) bottom / 100% 40% no-repeat,
+    repeating-linear-gradient(0deg, #b7c6c5 0 1px, transparent 1px 9px),
+    repeating-linear-gradient(90deg, #b7c6c5 0 1px, #eef4f3 1px 9px);
+}
+.lore-pools { display: none; }
+body[data-level="pools"] .lore-pools { display: block; }
+body[data-level="pools"] .lore-level0 { display: none; }
+.opt { display: flex; gap: 8px; align-items: flex-start; text-align: left; font-size: 13px; color: #d9cfa6; margin: -8px 0 16px; cursor: pointer; }
+.opt input { width: 18px; height: 18px; accent-color: #f3dc7a; flex: none; margin-top: 1px; }
+#btn-menu { margin-top: 10px; color: #eee6c8; border-color: #eee6c8; }

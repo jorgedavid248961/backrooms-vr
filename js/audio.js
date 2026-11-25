@@ -107,9 +107,12 @@
   };
 
   /* ---------- Zumbido de fluorescentes: 60 Hz + armónicos ---------- */
-  A.startHum = function () {
+  A.theme = 'level0';
+  A.startHum = function (theme) {
     if (!A.ready || humGain) return;
+    A.theme = theme || 'level0';
     var ctx = A.ctx;
+    if (A.theme === 'pools') { startWater(); return; }
     humGain = ctx.createGain();
     humGain.gain.value = 0;
     var humFilter = ctx.createBiquadFilter();
@@ -139,7 +142,11 @@
     lfo.connect(lg); lg.connect(humGain.gain); lfo.start();
     humGain.gain.setTargetAtTime(0.16, now(), 0.8);
 
-    // Estática / distorsión de amenaza (controlada por cercanía de la entidad).
+    startThreat(ctx);
+  };
+
+  // Estática / distorsión de amenaza (controlada por cercanía de la entidad).
+  function startThreat(ctx) {
     var st = noiseSource(true);
     var sbp = ctx.createBiquadFilter(); sbp.type = 'bandpass'; sbp.frequency.value = 1700; sbp.Q.value = 0.6;
     var shaper = ctx.createWaveShaper(); shaper.curve = distortionCurve(60);
@@ -149,11 +156,60 @@
     var lowf = ctx.createBiquadFilter(); lowf.type = 'lowpass'; lowf.frequency.value = 160;
     threatLowGain = ctx.createGain(); threatLowGain.gain.value = 0;
     low.connect(lowf); lowf.connect(threatLowGain); threatLowGain.connect(master); low.start();
+  }
+
+  /* ---------- Las Piscinas: agua que se mece, bomba lejana y eco ---------- */
+  function startWater() {
+    var ctx = A.ctx;
+    humGain = ctx.createGain();
+    humGain.gain.value = 0;
+    humGain.connect(master);
+    var wet = ctx.createGain(); wet.gain.value = 0.5; humGain.connect(wet); wet.connect(reverbSend);
+    // Oleaje suave: ruido filtrado con dos LFO lentos.
+    var n = noiseSource(true);
+    var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520; lp.Q.value = 0.7;
+    var lap = ctx.createGain(); lap.gain.value = 0.35;
+    n.connect(lp); lp.connect(lap); lap.connect(humGain); n.start();
+    [[0.17, 0.2], [0.29, 0.12]].forEach(function (l) {
+      var o = ctx.createOscillator(); o.frequency.value = l[0];
+      var g = ctx.createGain(); g.gain.value = l[1];
+      o.connect(g); g.connect(lap.gain); o.start();
+    });
+    var fm = ctx.createOscillator(); fm.frequency.value = 0.11;
+    var fmg = ctx.createGain(); fmg.gain.value = 180;
+    fm.connect(fmg); fmg.connect(lp.frequency); fm.start();
+    // Bomba de la piscina, muy grave y lejana.
+    var pump = ctx.createOscillator(); pump.type = 'sine'; pump.frequency.value = 50;
+    var pg = ctx.createGain(); pg.gain.value = 0.12;
+    pump.connect(pg); pg.connect(humGain); pump.start();
+    humGain.gain.setTargetAtTime(0.5, now(), 1.2);
+    startThreat(ctx);
+  }
+
+  A.drip = function (pos) {
+    var ctx = A.ctx, t = now(), f = 900 + Math.random() * 1400;
+    var o = ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 2.2, t + 0.06);
+    var g = output(pos, 1.4);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.35, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    o.connect(g); o.start(t); o.stop(t + 0.15);
+  };
+
+  A.splash = function (pos) {
+    var ctx = A.ctx, t = now(), dur = 0.5 + Math.random() * 0.6;
+    var n = noiseSource(false), bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 0.6;
+    var g = output(pos, 1.0);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.6, t + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    bp.frequency.setValueAtTime(1400, t); bp.frequency.exponentialRampToValueAtTime(400, t + dur);
+    n.connect(bp); bp.connect(g); n.start(t, Math.random(), dur + 0.05);
   };
 
   // Baja/sube el zumbido cuando las lámparas cercanas se apagan.
   A.setHumLevel = function (lvl) {
-    if (!humGain) return;
+    if (!humGain || A.theme === 'pools') return;
     humGain.gain.setTargetAtTime(0.16 * lvl, now(), 0.05);
   };
 
@@ -172,8 +228,9 @@
   };
 
   /* ---------- Pasos suaves sobre alfombra húmeda ---------- */
-  A.footstep = function (intensity) {
+  A.footstep = function (intensity, wet) {
     if (!A.ready) return;
+    if (wet) { waterStep(); return; }
     var ctx = A.ctx, t = now(), vol = 0.22 * (intensity || 1) * (0.8 + Math.random() * 0.4);
     var src = noiseSource(false);
     var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380 + Math.random() * 260; lp.Q.value = 0.9;
@@ -193,6 +250,19 @@
     src2.connect(hp); hp.connect(g2);
     src2.start(t + 0.03, Math.random() * 1.5, 0.15);
   };
+
+  // Paso dentro del agua: chapoteo corto.
+  function waterStep() {
+    var ctx = A.ctx, t = now(), vol = 0.28 * (0.8 + Math.random() * 0.4);
+    var n = noiseSource(false), bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.Q.value = 0.8;
+    bp.frequency.setValueAtTime(1600 + Math.random() * 600, t);
+    bp.frequency.exponentialRampToValueAtTime(500, t + 0.3);
+    var g = output(null, 0.35);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    n.connect(bp); bp.connect(g); n.start(t, Math.random() * 1.5, 0.4);
+  }
 
   /* ---------- Chispazo eléctrico de una lámpara (sincronizado con el parpadeo) ---------- */
   A.zap = function (pos, vol) {
@@ -296,7 +366,13 @@
   function scheduleAmbient() {
     clearTimeout(ambientTimer);
     ambientTimer = setTimeout(function () {
-      if (A.playing && A.ready) {
+      if (A.playing && A.ready && A.theme === 'pools') {
+        var rp = Math.random(), pp = randomFarPos();
+        if (rp < 0.5) { A.drip(pp); setTimeout(function () { A.drip(pp); }, 300 + Math.random() * 900); }
+        else if (rp < 0.75) A.splash(pp);
+        else if (rp < 0.9) A.distantSteps(pp);
+        else A.groan(pp);
+      } else if (A.playing && A.ready) {
         var r = Math.random(), pos = randomFarPos();
         if (r < 0.3) A.metalBang(pos);
         else if (r < 0.5) A.staticBurst(pos);
@@ -305,7 +381,7 @@
         else A.groan(pos);
       }
       scheduleAmbient();
-    }, 7000 + Math.random() * 14000);
+    }, A.theme === 'pools' ? 2500 + Math.random() * 6000 : 7000 + Math.random() * 14000);
   }
 
   A.startAmbient = function () { A.playing = true; scheduleAmbient(); };
@@ -351,7 +427,7 @@
   };
 
   A.restoreHum = function () {
-    if (humGain) humGain.gain.setTargetAtTime(0.16, now(), 0.5);
+    if (humGain) humGain.gain.setTargetAtTime(A.theme === 'pools' ? 0.5 : 0.16, now(), 0.5);
   };
 
   window.BRAudio = A;
