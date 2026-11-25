@@ -166,7 +166,7 @@ body.calibrating #btn-calib, body.calibrating #btn-exit-stereo { display: none; 
 .calib-buttons .secondary { width: 40%; font-size: 13px; padding: 8px; }
 
 /* ---------- v2: menú de niveles ---------- */
-.levels { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 4px; }
+.levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 14px 0 4px; }
 .level-card {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   padding: 10px 8px; border-radius: 10px; text-align: center;
@@ -184,11 +184,21 @@ body.calibrating #btn-calib, body.calibrating #btn-exit-stereo { display: none; 
     repeating-linear-gradient(0deg, #b7c6c5 0 1px, transparent 1px 9px),
     repeating-linear-gradient(90deg, #b7c6c5 0 1px, #eef4f3 1px 9px);
 }
-.lore-pools { display: none; }
-body[data-level="pools"] .lore-pools { display: block; }
-body[data-level="pools"] .lore-level0 { display: none; }
+.lore-pools, .lore-warehouse { display: none; }
+body[data-level="pools"] .lore-pools, body[data-level="warehouse"] .lore-warehouse { display: block; }
+body[data-level="pools"] .lore-level0, body[data-level="warehouse"] .lore-level0 { display: none; }
 .opt { display: flex; gap: 8px; align-items: flex-start; text-align: left; font-size: 13px; color: #d9cfa6; margin: -8px 0 16px; cursor: pointer; }
 .opt input { width: 18px; height: 18px; accent-color: #f3dc7a; flex: none; margin-top: 1px; }
 #btn-menu { margin-top: 10px; color: #eee6c8; border-color: #eee6c8; }
 
 .version { font-size: 11px; color: #8f845c; margin-top: 2px; }
+
+/* ---------- v3 ---------- */
+.lc-warehouse {
+  background:
+    radial-gradient(ellipse at 30% 80%, rgba(20, 18, 14, 0.9) 0 20%, transparent 22%),
+    linear-gradient(180deg, #4a4741 0 35%, #6b675f 35% 70%, #3b3833 70%);
+}
+.badge { font-style: normal; font-size: 9px; letter-spacing: 1px; color: #1c1605; background: #9fd3ff; border-radius: 4px; padding: 1px 4px; vertical-align: middle; }
+.level-card .rec { color: #f3dc7a; font-size: 11px; margin-top: 2px; }
+#menu { touch-action: pan-y; }

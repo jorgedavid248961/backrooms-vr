@@ -18,6 +18,7 @@
   };
 
   function $(id) { return document.getElementById(id); }
+  function fmtTime(secs) { return Math.floor(secs / 60) + ':' + ('0' + (secs % 60)).slice(-2); }
   function isVRView(scene) { return G.stereo || (scene.renderer && scene.renderer.xr && scene.renderer.xr.isPresenting); }
 
   AFRAME.registerComponent('br-game', {
@@ -52,6 +53,8 @@
       this.scareMesh.visible = false;
       cam3.add(this.scareMesh);
 
+      BRItems.initFlashlight(cam3, this.el.object3D);
+      BRItems.setHudVisible(false);
       this.installStereo();
       this.bindUI();
       this.buildCalibUI();
@@ -61,12 +64,20 @@
     /* ---------- Construcción del nivel elegido en el menú ---------- */
     buildLevel: function (theme, withEntity) {
       var scene = this.el.object3D;
+      this.destroyLevel();
       var root = new THREE.Group();
       scene.add(root);
+      this.root = root;
       G.level = theme;
-      G.maze = BRMaze.build(root, { theme: theme });
+      G.withEntity = withEntity;
+      // Semilla nueva en cada partida: el mapa nunca es igual.
+      G.maze = BRMaze.build(root, { theme: theme, seed: (Math.random() * 1e9) | 1, envMap: theme === 'warehouse' ? this.getEnvMap() : null });
       var fogColor, density;
-      if (theme === 'pools') {
+      if (theme === 'warehouse') {
+        root.add(new THREE.AmbientLight(0xffe2bf, 0.16));
+        root.add(new THREE.HemisphereLight(0xd8d4cc, 0x2a2620, 0.18));
+        fogColor = 0x13110d; density = 0.055;
+      } else if (theme === 'pools') {
         root.add(new THREE.AmbientLight(0xeef6f8, 0.42));
         root.add(new THREE.HemisphereLight(0xffffff, 0xa9bcbf, 0.28));
         fogColor = 0xcfe3e4; density = 0.032;
@@ -80,6 +91,44 @@
       G.entity = withEntity ? BREntity.create(root, G.maze) : null;
       this.placePlayer();
       if (G.entity) G.entity.reset(G.maze.startCell);
+      BRItems.populate(root, G.maze, true);
+    },
+
+    // Libera el nivel anterior (geometrías, materiales y texturas).
+    destroyLevel: function () {
+      if (!this.root) return;
+      this.el.object3D.remove(this.root);
+      this.root.traverse(function (o) {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) {
+          (Array.isArray(o.material) ? o.material : [o.material]).forEach(function (m) {
+            ['map', 'normalMap', 'roughnessMap'].forEach(function (k) { if (m[k]) m[k].dispose(); });
+            m.dispose();
+          });
+        }
+      });
+      this.root = null;
+    },
+
+    // Mapa de entorno para reflejos (charcos, metal): una sala oscura con lámparas, prefiltrada.
+    getEnvMap: function () {
+      if (this.envMap) return this.envMap;
+      var r = this.el.renderer;
+      var envScene = new THREE.Scene();
+      var room = new THREE.Mesh(new THREE.BoxGeometry(20, 6, 20), new THREE.MeshBasicMaterial({ color: 0x2b2722, side: THREE.BackSide }));
+      envScene.add(room);
+      var lampMat = new THREE.MeshBasicMaterial({ color: 0xffe0b0 });
+      for (var i = -1; i <= 1; i++) for (var j = -1; j <= 1; j++) {
+        var lamp = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.5), lampMat);
+        lamp.rotation.x = Math.PI / 2; lamp.position.set(i * 6, 2.9, j * 6);
+        envScene.add(lamp);
+      }
+      var floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshBasicMaterial({ color: 0x15130f }));
+      floor.rotation.x = -Math.PI / 2; floor.position.y = -2.9; envScene.add(floor);
+      var pm = new THREE.PMREMGenerator(r);
+      this.envMap = pm.fromScene(envScene, 0.02).texture;
+      pm.dispose();
+      return this.envMap;
     },
 
     placePlayer: function () {
@@ -104,10 +153,18 @@
       });
       $('opt-entity').addEventListener('change', function () { prefs.entity = $('opt-entity').checked; });
       paintMenu();
+      function paintRecords() {
+        document.querySelectorAll('[data-rec]').forEach(function (el) {
+          var best = self.getRecord(el.dataset.rec);
+          el.textContent = best ? 'Récord: ' + fmtTime(best) : 'Sin récord aún';
+        });
+      }
+      paintRecords();
 
       function enter(withStereo, calib) {
         try { localStorage.setItem('br-menu', JSON.stringify(prefs)); } catch (e) { /* noop */ }
         if (!G.maze) self.buildLevel(prefs.level, prefs.entity);
+        paintRecords();
         // 1) Permisos de orientación en iOS 13+ (debe ocurrir dentro del gesto).
         try {
           if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -164,7 +221,20 @@
       setTimeout(function () { h.classList.remove('show'); }, 7000);
     },
 
+    /* ---------- Récords por nivel (guardados en el celular) ---------- */
+    getRecord: function (level) {
+      try { return (JSON.parse(localStorage.getItem('br-records') || '{}'))[level] || 0; } catch (e) { return 0; }
+    },
+    saveRecord: function (level, secs) {
+      var rec = {};
+      try { rec = JSON.parse(localStorage.getItem('br-records') || '{}'); } catch (e) { rec = {}; }
+      var isNew = !rec[level] || secs < rec[level];
+      if (isNew) { rec[level] = secs; try { localStorage.setItem('br-records', JSON.stringify(rec)); } catch (e) { /* noop */ } }
+      return isNew;
+    },
+
     startGame: function () {
+      BRItems.setHudVisible(true);
       G.state = 'playing';
       G.time = 0;
       BRControls.autoWalk = false;
@@ -174,8 +244,8 @@
     },
 
     restart: function () {
-      this.placePlayer();
-      if (G.entity) G.entity.reset(G.maze.startCell);
+      // Mapa nuevo en cada partida.
+      this.buildLevel(G.level, G.withEntity);
       BRAudio.restoreHum();
       BRAudio.startAmbient();
       this.startGame();
@@ -241,6 +311,7 @@
 
     closeCalib: function () {
       G.calibrating = false;
+      BRItems.setHudVisible(G.state === 'playing');
       BRStereo.calibrating = false;
       BRStereo.save();
       document.body.classList.remove('calibrating');
@@ -344,17 +415,24 @@
 
       if (G.calibrating) {
         this.calibTick(dt);
+        BRItems.setHudVisible(false);
         G.maze.update(dt, p, null);
       } else if (G.state === 'playing') {
         G.time += dt;
         var grace = G.time < 8;
-        var caught = G.entity ? G.entity.update(dt, p, BRControls.moving, grace) : false;
+        var info = { noise: BRControls.noise, visible: BRItems.on || !G.maze.isDark(p.x, p.z) };
+        var caught = G.entity ? G.entity.update(dt, p, info, grace) : false;
         G.maze.update(dt, p, G.entity ? G.entity.pos : null);
         BRAudio.setThreat(G.entity ? G.entity.threat : 0);
+        if (BRItems.update(dt, p, t, G.maze)) BRAudio.unlock();
 
-        var ex = G.maze.exit, dx = p.x - ex.x, dz = p.z - ex.z;
-        if (dx * dx + dz * dz < 1.4 * 1.4) this.win();
+        var ex = G.maze.exit, dx = p.x - ex.x, dz = p.z - ex.z, near = dx * dx + dz * dz < 1.4 * 1.4;
+        if (near && ex.open) this.win();
         else if (caught) this.caught();
+        else if (near && !this.lockedMsg) {
+          this.lockedMsg = true;
+          BRItems.say('Cerrada: faltan ' + (BRItems.total - BRItems.notes) + ' notas');
+        } else if (!near) this.lockedMsg = false;
       } else {
         G.maze.update(dt, G.state === 'menu' ? null : p, G.state === 'caught' && G.entity ? G.entity.pos : null);
       }
@@ -377,6 +455,7 @@
 
     caught: function () {
       G.state = 'caught';
+      BRItems.setHudVisible(false);
       BRAudio.stopAmbient();
       BRAudio.jumpscare();
       this.scareT = 0;
@@ -387,7 +466,7 @@
       G.restartAt = performance.now() + 1700;
       this.hudMesh.visible = false;
       this.showEnd('TE ATRAPÓ', [
-        'Sobreviviste ' + Math.floor(G.time) + ' segundos' + (G.level === 'pools' ? ' en las Piscinas.' : ' en el Nivel 0.'),
+        'Sobreviviste ' + Math.floor(G.time) + ' s · notas ' + BRItems.notes + '/' + BRItems.total + '.',
         'Toca la pantalla, pulsa un botón',
         'del control o la tecla R para reiniciar.'
       ], '#ff4a3a', 'lose');
@@ -397,12 +476,14 @@
 
     win: function () {
       G.state = 'won';
+      BRItems.setHudVisible(false);
       BRAudio.stopAmbient();
       BRAudio.win();
       G.restartAt = performance.now() + 1500;
-      var secs = Math.floor(G.time), mm = Math.floor(secs / 60), ss = ('0' + (secs % 60)).slice(-2);
+      var secs = Math.max(1, Math.floor(G.time));
+      var isNew = this.saveRecord(G.level, secs);
       this.showEnd('¡ESCAPASTE!', [
-        'Encontraste la salida en ' + mm + ':' + ss + '.',
+        'Tiempo: ' + fmtTime(secs) + (isNew ? '  ·  ¡NUEVO RÉCORD!' : '  ·  récord ' + fmtTime(this.getRecord(G.level))),
         'Toca la pantalla, pulsa un botón',
         'o la tecla R para jugar otra vez.'
       ], '#5dff86', 'win');

@@ -140,7 +140,17 @@
     var lfo = ctx.createOscillator(); lfo.frequency.value = 0.13;
     var lg = ctx.createGain(); lg.gain.value = 0.02;
     lfo.connect(lg); lg.connect(humGain.gain); lfo.start();
-    humGain.gain.setTargetAtTime(0.16, now(), 0.8);
+    humGain.gain.setTargetAtTime(A.theme === 'warehouse' ? 0.07 : 0.16, now(), 0.8);
+    if (A.theme === 'warehouse') {
+      // Ventilación industrial lejana.
+      var vn = noiseSource(true), vf = ctx.createBiquadFilter();
+      vf.type = 'lowpass'; vf.frequency.value = 180;
+      var vg = ctx.createGain(); vg.gain.value = 0.3;
+      vn.connect(vf); vf.connect(vg); vg.connect(master); vn.start();
+      var vl = ctx.createOscillator(); vl.frequency.value = 0.07;
+      var vlg = ctx.createGain(); vlg.gain.value = 0.12;
+      vl.connect(vlg); vlg.connect(vg.gain); vl.start();
+    }
 
     startThreat(ctx);
   };
@@ -210,7 +220,7 @@
   // Baja/sube el zumbido cuando las lámparas cercanas se apagan.
   A.setHumLevel = function (lvl) {
     if (!humGain || A.theme === 'pools') return;
-    humGain.gain.setTargetAtTime(0.16 * lvl, now(), 0.05);
+    humGain.gain.setTargetAtTime((A.theme === 'warehouse' ? 0.07 : 0.16) * lvl, now(), 0.05);
   };
 
   function distortionCurve(k) {
@@ -410,6 +420,32 @@
     A.setThreat(0);
   };
 
+  /* ---------- Interfaz: clic de linterna y recoger objetos ---------- */
+  A.click = function () {
+    if (!A.ready) return;
+    var ctx = A.ctx, t = now();
+    var n = noiseSource(false), hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2500;
+    var g = output(null, 0.1);
+    g.gain.setValueAtTime(0.4, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+    n.connect(hp); hp.connect(g); n.start(t, Math.random(), 0.05);
+  };
+  A.pickup = function (isNote) {
+    if (!A.ready) return;
+    var ctx = A.ctx, t = now();
+    (isNote ? [392, 523.3, 659.3] : [660, 990]).forEach(function (f, i) {
+      var o = ctx.createOscillator(); o.type = isNote ? 'triangle' : 'square'; o.frequency.value = f;
+      var g = output(null, 0.3);
+      g.gain.setValueAtTime(0, t + i * 0.07); g.gain.linearRampToValueAtTime(isNote ? 0.12 : 0.05, t + i * 0.07 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.07 + (isNote ? 0.6 : 0.15));
+      o.connect(g); o.start(t + i * 0.07); o.stop(t + i * 0.07 + 0.7);
+    });
+  };
+  // Cerrojo de la salida que se abre (golpe metálico grave + chirrido).
+  A.unlock = function () {
+    if (!A.ready) return;
+    A.metalBang({ x: A.playerPos.x, y: 1.5, z: A.playerPos.z + 3 });
+  };
+
   /* ---------- Victoria ---------- */
   A.win = function () {
     if (!A.ready) return;
@@ -427,7 +463,7 @@
   };
 
   A.restoreHum = function () {
-    if (humGain) humGain.gain.setTargetAtTime(A.theme === 'pools' ? 0.5 : 0.16, now(), 0.5);
+    if (humGain) humGain.gain.setTargetAtTime(A.theme === 'pools' ? 0.5 : A.theme === 'warehouse' ? 0.07 : 0.16, now(), 0.5);
   };
 
   window.BRAudio = A;
