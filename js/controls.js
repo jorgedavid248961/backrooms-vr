@@ -160,7 +160,8 @@
       }
 
       var gp = readGamepad();
-      var playing = game && game.state === 'playing';
+      C.pad = gp;
+      var playing = game && game.state === 'playing' && !game.calibrating;
 
       // Botón de mirada en el suelo.
       this.gazeMesh.position.set(rig.position.x, 0.03, rig.position.z);
@@ -205,9 +206,12 @@
       if (len > 1) { vx /= len; vz /= len; len = 1; }
       var p = rig.position;
       var ox = p.x, oz = p.z;
+      var inWater = !!(game.maze && game.maze.isWater && game.maze.isWater(p.x, p.z));
+      C.inWater = inWater;
+      var spd = C.speed * (inWater ? 0.7 : 1);
       if (len > 0.01) {
-        p.x += vx * C.speed * dt;
-        p.z += vz * C.speed * dt;
+        p.x += vx * spd * dt;
+        p.z += vz * spd * dt;
       }
       if (game.maze) game.maze.resolve(p, C.radius);
       var moved = Math.sqrt((p.x - ox) * (p.x - ox) + (p.z - oz) * (p.z - oz));
@@ -215,16 +219,16 @@
 
       // Pasos sincronizados con la distancia recorrida.
       this.stepDist += moved;
-      if (this.stepDist > 0.78) {
+      if (this.stepDist > (inWater ? 0.6 : 0.78)) {
         this.stepDist = 0;
-        if (window.BRAudio) BRAudio.footstep(1);
+        if (window.BRAudio) BRAudio.footstep(1, inWater);
       }
 
       // Balanceo de cabeza sólo en pantalla normal (en VR marea).
       var camEl = this.data.camera;
       if (camEl && !xr && !(game && game.stereo)) {
         if (C.moving) this.bob += moved * 7.5;
-        var targetY = 1.6 + (C.moving ? Math.sin(this.bob) * 0.03 : 0);
+        var targetY = (inWater ? 1.5 : 1.6) + (C.moving ? Math.sin(this.bob) * 0.03 : 0);
         var cp = camEl.object3D.position;
         cp.y += (targetY - cp.y) * Math.min(1, dt * 10);
       }
