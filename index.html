@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Cache-Control" content="no-cache">
   <title>Backrooms VR - Nivel 0</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="mobile-web-app-capable" content="yes">
@@ -9,19 +10,19 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#1a1608">
   <meta name="description" content="Juego de terror de los Backrooms (Nivel 0) en WebXR para VR Box / Google Cardboard.">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=2.1">
 
   <!-- Motor: A-Frame 1.6.0 (única dependencia externa) -->
   <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
 
   <!-- Módulos del juego (deben cargarse antes de <a-scene>) -->
-  <script src="js/textures.js"></script>
-  <script src="js/audio.js"></script>
-  <script src="js/maze.js"></script>
-  <script src="js/controls.js"></script>
-  <script src="js/entity.js"></script>
-  <script src="js/stereo.js"></script>
-  <script src="js/game.js"></script>
+  <script src="js/textures.js?v=2.1"></script>
+  <script src="js/audio.js?v=2.1"></script>
+  <script src="js/maze.js?v=2.1"></script>
+  <script src="js/controls.js?v=2.1"></script>
+  <script src="js/entity.js?v=2.1"></script>
+  <script src="js/stereo.js?v=2.1"></script>
+  <script src="js/game.js?v=2.1"></script>
 </head>
 <body>
 
@@ -30,6 +31,7 @@
     <div class="menu-box">
       <div class="flicker-title">BACKROOMS VR</div>
       <div class="subtitle">ELIGE UN NIVEL</div>
+      <div class="version">versión 2.1</div>
       <div class="levels">
         <button class="level-card ui" data-level="level0" type="button">
           <span class="lc-swatch lc-level0"></span>

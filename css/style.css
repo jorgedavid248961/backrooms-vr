@@ -190,3 +190,5 @@ body[data-level="pools"] .lore-level0 { display: none; }
 .opt { display: flex; gap: 8px; align-items: flex-start; text-align: left; font-size: 13px; color: #d9cfa6; margin: -8px 0 16px; cursor: pointer; }
 .opt input { width: 18px; height: 18px; accent-color: #f3dc7a; flex: none; margin-top: 1px; }
 #btn-menu { margin-top: 10px; color: #eee6c8; border-color: #eee6c8; }
+
+.version { font-size: 11px; color: #8f845c; margin-top: 2px; }
